@@ -11,26 +11,51 @@ int height;
 int width;
 int maxVal;
 
-int processHeader(ifstream &file)
-{
+int processHeader(ifstream &file) {
     string line;
 
-    getline(file, line); // ignore the first line
-    getline(file, line); // height and lenght
+    while (getline(file, line)) {
+        if (line[0] != '#' && !line.empty()) {
+            break;
+        }
+    }
+    while (getline(file, line)) {
+        if (line[0] != '#' && !line.empty()) {
+            istringstream iss(line);
+            iss >> width >> height;
+            break;
+        }
+    }
 
-    istringstream iss(line);
-    iss >> width;
-    iss >> height;
-
-    getline(file, line);
-
-    istringstream iss2(line);
-    iss2 >> maxVal;
+    while (getline(file, line)) {
+        if (line[0] != '#' && !line.empty()) {
+            istringstream iss(line);
+            iss >> maxVal;
+            break;
+        }
+    }
 
     return 0;
 }
 
-void loadOriginal(ifstream &file, int **red, int **blue, int **green)
+void rewriteOriginal(ofstream &writer, int **red, int **green, int **blue)
+{
+    writer << "P3" << endl;
+    writer << width << " " << height << endl;
+    writer << maxVal << endl;
+
+    for (int row = 0; row < height; row++) {
+        for (int col = 0; col < width; col++) {
+            // cout << red[row][col]  << " " << green[row][col] << " " << blue[row][col] << "  ";
+            writer << red[row][col] << " "
+                   << green[row][col] << " "
+                   << blue[row][col] << " ";
+        }
+        writer << endl; // Add newline after each row
+    }
+}
+
+void loadOriginal(ifstream &file, int **red, int **green, int **blue)
 {
     for (int row = 0; row < height; row++)
     {
@@ -40,14 +65,16 @@ void loadOriginal(ifstream &file, int **red, int **blue, int **green)
         for (int col = 0; col < width; col++)
         {
             iss >> red[row][col];
-            iss >> blue[row][col];
             iss >> green[row][col];
-            // cout << red[row][col]  << blue[row][col] << green[row][col] << endl;
+            iss >> blue[row][col];
+
+            // cout << red[row][col]  << " " << green[row][col] << " " << blue[row][col] << "  ";
         }
+        // cout << endl;
     }
 }
 
-void negateImg(ofstream &writer, int **red, int **blue, int **green)
+void negateImg(ofstream &writer, int **red, int **green, int **blue)
 {
     writer << "P3" << endl;
     writer << width << " " << height << endl;
@@ -57,15 +84,15 @@ void negateImg(ofstream &writer, int **red, int **blue, int **green)
     {
         for (int col = 0; col < width; col++)
         {
-            writer << maxVal - red[row][col] << " "
-                   << maxVal - blue[row][col] << " "
-                   << maxVal - green[row][col] << "  ";
+            writer << (maxVal - red[row][col]) << " "
+                   << (maxVal - green[row][col]) << "  "
+                   << (maxVal - blue[row][col]) << " ";
         }
         writer << endl;
     }
 }
 
-void quantize(ofstream &writer, int **red, int **blue, int **green)
+void quantize(ofstream &writer, int **red, int **green, int **blue)
 {
     writer << "P3" << endl;
     writer << width << " " << height << endl;
@@ -76,14 +103,14 @@ void quantize(ofstream &writer, int **red, int **blue, int **green)
         for (int col = 0; col < width; col++)
         {
             writer << ((red[row][col] > 127) ? 255 : 0) << " "
-                   << ((blue[row][col] > 127) ? 255 : 0) << " "
-                   << ((green[row][col] > 127) ? 255 : 0) << "  ";
+                   << ((green[row][col] > 127) ? 255 : 0) << "  "
+                   << ((blue[row][col] > 127) ? 255 : 0) << " ";
         }
         writer << endl;
     }
 }
 
-void grayscale(ofstream &writer, int **red, int **blue, int **green)
+void grayscale(ofstream &writer, int **red,  int **green, int **blue)
 {
     writer << "P3" << endl;
     writer << width << " " << height << endl;
@@ -92,7 +119,7 @@ void grayscale(ofstream &writer, int **red, int **blue, int **green)
     {
         for (int col = 0; col < width; col++)
         {
-            int sum = red[row][col] + blue[row][col] + green[row][col];
+            int sum = red[row][col] + green[row][col] + blue[row][col];
             int avg = sum / 3;
             writer << avg << " "
                    << avg << " "
@@ -102,7 +129,7 @@ void grayscale(ofstream &writer, int **red, int **blue, int **green)
     }
 }
 
-void flipHorizontal(ofstream &writer, int **red, int **blue, int **green)
+void flipHorizontal(ofstream &writer, int **red, int **green,  int **blue)
 {
     writer << "P3" << endl;
     writer << width << " " << height << endl;
@@ -113,8 +140,8 @@ void flipHorizontal(ofstream &writer, int **red, int **blue, int **green)
         for (int col = width - 1; col >= 0; col--)
         {
             writer << red[row][col] << " "
-                   << blue[row][col] << " "
-                   << green[row][col] << "  ";
+                   << green[row][col] << "  "
+                   << blue[row][col] << " ";
         }
         writer << endl;
     }
@@ -141,17 +168,17 @@ int main(int argc, char *argv[])
     processHeader(file);
 
     int **red = new int *[height];
-    int **blue = new int *[height];
     int **green = new int *[height];
+    int **blue = new int *[height];
 
     for (int i = 0; i < height; i++)
     {
         red[i] = new int[width];
-        blue[i] = new int[width];
         green[i] = new int[width];
+        blue[i] = new int[width];
     }
 
-    loadOriginal(file, red, blue, green);
+    loadOriginal(file, red, green, blue);
 
     ofstream output(filename + "_flipped.ppm");
 
@@ -161,10 +188,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // negateImg(output, red, blue, green);
-    // quantize(output, red, blue, green);
-    // grayscale(output, red, blue, green);
-    // flipHorizontal(output, red, blue, green);
+    // rewriteOriginal(output, red, green, blue);
+    // negateImg(output, red, green, blue);
+    // quantize(output, red, green, blue);
+    // grayscale(output, red, green, blue);
+    flipHorizontal(output, red, green, blue);
 
     output.close();
     file.close();
@@ -173,12 +201,12 @@ int main(int argc, char *argv[])
     for (int i = 0; i < height; i++)
     {
         delete[] red[i];
-        delete[] blue[i];
         delete[] green[i];
+        delete[] blue[i];
     }
     delete[] red;
-    delete[] blue;
     delete[] green;
+    delete[] blue;
 
     cout << "InputFile: " << filename << endl;
     cout << "height: " << height << ", width: " << width << ", " << maxVal << endl;
