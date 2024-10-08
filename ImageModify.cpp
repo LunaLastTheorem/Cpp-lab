@@ -11,24 +11,73 @@ int height;
 int width;
 int maxVal;
 
-int processHeader(ifstream &file) {
+enum Modification
+{
+    NEGATE = 0,
+    QUANTIZE = 1,
+    GRAY_SCALE = 2,
+    FLIP_HORIZONTAL = 3
+};
+
+string modificationToString(Modification mod)
+{
+    switch (mod)
+    {
+    case NEGATE:
+        return "-negate";
+    case QUANTIZE:
+        return "-quantize";
+    case GRAY_SCALE:
+        return "-gray-scale";
+    case FLIP_HORIZONTAL:
+        return "-flip-horizontal";
+    default:
+        return "-negate";
+    }
+}
+
+Modification getModification(char ch)
+{
+    switch (ch)
+    {
+    case 'a':
+        return NEGATE;
+    case 'b':
+        return QUANTIZE;
+    case 'c':
+        return GRAY_SCALE;
+    case 'd':
+        return FLIP_HORIZONTAL;
+    default:
+        return NEGATE;
+    }
+}
+
+int processHeader(ifstream &file)
+{
     string line;
 
-    while (getline(file, line)) {
-        if (line[0] != '#' && !line.empty()) {
+    while (getline(file, line))
+    {
+        if (line[0] != '#' && !line.empty())
+        {
             break;
         }
     }
-    while (getline(file, line)) {
-        if (line[0] != '#' && !line.empty()) {
+    while (getline(file, line))
+    {
+        if (line[0] != '#' && !line.empty())
+        {
             istringstream iss(line);
             iss >> width >> height;
             break;
         }
     }
 
-    while (getline(file, line)) {
-        if (line[0] != '#' && !line.empty()) {
+    while (getline(file, line))
+    {
+        if (line[0] != '#' && !line.empty())
+        {
             istringstream iss(line);
             iss >> maxVal;
             break;
@@ -38,39 +87,36 @@ int processHeader(ifstream &file) {
     return 0;
 }
 
-void rewriteOriginal(ofstream &writer, int **red, int **green, int **blue)
-{
-    writer << "P3" << endl;
-    writer << width << " " << height << endl;
-    writer << maxVal << endl;
+// void rewriteOriginal(ofstream &writer, int **red, int **green, int **blue)
+// {
+//     writer << "P3" << endl;
+//     writer << width << " " << height << endl;
+//     writer << maxVal << endl;
 
-    for (int row = 0; row < height; row++) {
-        for (int col = 0; col < width; col++) {
-            // cout << red[row][col]  << " " << green[row][col] << " " << blue[row][col] << "  ";
-            writer << red[row][col] << " "
-                   << green[row][col] << " "
-                   << blue[row][col] << " ";
-        }
-        writer << endl; // Add newline after each row
-    }
-}
+//     for (int row = 0; row < height; row++) {
+//         for (int col = 0; col < width; col++) {
+//             // cout << "row: " << row << " col: " << col  << " " << red[row][col] << " " << green[row][col] << " " << blue[row][col]  << endl;
+//             writer << red[row][col] << " "
+//                    << green[row][col] << " "
+//                    << blue[row][col] << " ";
+//         }
+//         writer << endl; // Add newline after each row
+//     }
+// }
 
 void loadOriginal(ifstream &file, int **red, int **green, int **blue)
 {
+    string line;
+    int r, g, b;
     for (int row = 0; row < height; row++)
     {
-        string line;
-        getline(file, line);
-        istringstream iss(line);
         for (int col = 0; col < width; col++)
         {
-            iss >> red[row][col];
-            iss >> green[row][col];
-            iss >> blue[row][col];
-
-            // cout << red[row][col]  << " " << green[row][col] << " " << blue[row][col] << "  ";
+            file >> r >> g >> b;
+            red[row][col] = r;
+            green[row][col] = g;
+            blue[row][col] = b;
         }
-        // cout << endl;
     }
 }
 
@@ -110,7 +156,7 @@ void quantize(ofstream &writer, int **red, int **green, int **blue)
     }
 }
 
-void grayscale(ofstream &writer, int **red,  int **green, int **blue)
+void grayscale(ofstream &writer, int **red, int **green, int **blue)
 {
     writer << "P3" << endl;
     writer << width << " " << height << endl;
@@ -129,7 +175,7 @@ void grayscale(ofstream &writer, int **red,  int **green, int **blue)
     }
 }
 
-void flipHorizontal(ofstream &writer, int **red, int **green,  int **blue)
+void flipHorizontal(ofstream &writer, int **red, int **green, int **blue)
 {
     writer << "P3" << endl;
     writer << width << " " << height << endl;
@@ -147,24 +193,8 @@ void flipHorizontal(ofstream &writer, int **red, int **green,  int **blue)
     }
 }
 
-int main(int argc, char *argv[])
+void processBody(ifstream &file, ofstream &writer, Modification mod)
 {
-    if (argc < 2)
-    {
-        cout << "Usage: ImageModify <filename>" << endl;
-        return 1;
-    }
-
-    string filename = argv[1];
-
-    ifstream file(filename);
-
-    if (!file.is_open())
-    {
-        cerr << "Error opening file: " << filename << endl;
-        return 1;
-    }
-
     processHeader(file);
 
     int **red = new int *[height];
@@ -180,24 +210,24 @@ int main(int argc, char *argv[])
 
     loadOriginal(file, red, green, blue);
 
-    ofstream output(filename + "_flipped.ppm");
-
-    if (!output.is_open())
+    switch (mod)
     {
-        cerr << "error opening file" << endl;
-        return 1;
+    case NEGATE:
+        negateImg(writer, red, green, blue);
+        break;
+    case QUANTIZE:
+        quantize(writer, red, green, blue);
+        break;
+    case GRAY_SCALE:
+        grayscale(writer, red, green, blue);
+        break;
+    case FLIP_HORIZONTAL:
+        flipHorizontal(writer, red, green, blue);
+        break;
+    default:
+        negateImg(writer, red, green, blue);
     }
 
-    // rewriteOriginal(output, red, green, blue);
-    // negateImg(output, red, green, blue);
-    // quantize(output, red, green, blue);
-    // grayscale(output, red, green, blue);
-    flipHorizontal(output, red, green, blue);
-
-    output.close();
-    file.close();
-
-    // Free allocated memory
     for (int i = 0; i < height; i++)
     {
         delete[] red[i];
@@ -207,9 +237,53 @@ int main(int argc, char *argv[])
     delete[] red;
     delete[] green;
     delete[] blue;
+}
 
-    cout << "InputFile: " << filename << endl;
-    cout << "height: " << height << ", width: " << width << ", " << maxVal << endl;
+int main(int argc, char *argv[])
+{
+    string filename;
+    char input = 'f';
+
+    cout << "Input file: ";
+    cin >> filename;
+    string fileNoExtension = filename.substr(0, filename.find(".ppm"));
+    string fileExtesion = filename.substr(filename.find_last_of(".") + 1);
+    if (fileExtesion != "ppm")
+    {
+        cerr << "Error file not supported: " << fileExtesion << endl;
+        return 1;
+    }
+
+    while (input < 'a' || input > 'd')
+    {
+        cout << "Select modification: " << endl;
+        cout << "(a) negate" << endl;
+        cout << "(b) quantize" << endl;
+        cout << "(c) gray scale" << endl;
+        cout << "(d) flip horizontal" << endl;
+        cin >> input;
+    }
+
+    Modification mod = getModification(input);
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Error opening file: " << filename << endl;
+        return 1;
+    }
+
+    ofstream output(fileNoExtension + modificationToString(mod) + ".ppm");
+    if (!output.is_open())
+    {
+        cerr << "Error opening file" << endl;
+        return 1;
+    }
+    processBody(file, output, mod);
+
+    cout << "Output file: " << fileNoExtension << modificationToString(mod) << ".ppm";
+
+    output.close();
+    file.close();
 
     return 0;
 }
